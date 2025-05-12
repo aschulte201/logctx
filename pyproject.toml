@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools >= 64", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logctx"
+description = "Management and injection of contextual variables into log messages."
+authors = [{ name = "Alexander Schulte" }]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = ["typing-extensions>=4.12"]
+dynamic = ["version"]
+keywords = ["logging", "context", "log", "logger", "logctx", "log-context"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/aschulte201/logctx"
+Source = "https://github.com/aschulte201/logctx"
+Documentation = "https://github.com/aschulte201/logctx/blob/README.md"
+Changelog = "https://github.com/aschulte201/logctx/blob/CHANGELOG.md"
+
+[dependency-groups]
+linting = ["ruff"]
+typechecking = ["mypy"]
+testing = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.1.1",
+    "pytest-mock>=3.14.0",
+]
+all = [
+    { include-group = 'linting' },
+    { include-group = 'typechecking' },
+    { include-group = 'testing' },
+]
+
+[tool.setuptools.packages.find]
+include = ["logctx*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "logctx.__version__" }
+
+[tool.ruff]
+line-length = 90
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.mypy]
+disable_error_code = ["import-untyped", "import-not-found"]
+
+[tool.semantic_release]
+tag_format = "v{version}"
+version_variables = ["logctx/__init__.py:__version__"]
+commit_parser = "angular"
+upload_to_release = true
+
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease = false

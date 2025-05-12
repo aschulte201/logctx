@@ -1,0 +1,12 @@
+name: CICD
+
+on:
+  pull_request: {}
+
+jobs:
+  python-checks:
+    name: Python Quality Checks
+    uses: ./.github/workflows/python-checks.yml
+    with:
+      python-versions: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
+    secrets: inherit

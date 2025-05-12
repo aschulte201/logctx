@@ -1,0 +1,75 @@
+name: Python Quality Checks
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        required: true
+        type: string
+
+env:
+  UV_FROZEN: true
+
+jobs:
+  lint:
+    name: Ruff Lint (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install lint dependencies
+        run: uv sync --group linting
+
+      - name: Run ruff
+        run: uv run ruff check .
+
+  typecheck:
+    name: Mypy Type Check (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install type-checking dependencies
+        run: uv sync --group typechecking
+
+      - name: Run mypy
+        run: uv run mypy .
+
+  test:
+    name: Pytest (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: uv sync --group testing
+
+      - name: Run tests
+        run: uv run pytest .
