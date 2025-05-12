@@ -1,0 +1,171 @@
+name: Semantic Release
+
+on:
+# The workflows must run on pushes to main as well as tags,
+# because of problems when using different workflows for
+# release and publish to pypi.
+# Release and publish jobs are prevented from executing twice inside the job
+# definitions.
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+jobs:
+  python-checks:
+    name: Python Quality Checks
+    uses: ./.github/workflows/python-checks.yml
+    with:
+      python-versions: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
+    secrets: inherit
+
+  release:
+    name: Semantic Version Release
+    runs-on: ubuntu-latest
+    needs: python-checks
+    environment: release
+    concurrency:
+      group: ${{ github.workflow }}-release-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    # only run on pushes to main
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && !startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v4
+        # the checkout action persists the passed credentials by default
+        # subsequent git commands will pick them up automatically
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0 
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Setup | Force release branch to be at workflow sha
+        run: |
+          git reset --hard ${{ github.sha }}
+
+      - name: Evaluate | Verify upstream has NOT changed
+        shell: bash
+        run: |
+          set +o pipefail
+
+          UPSTREAM_BRANCH_NAME="$(git status -sb | head -n 1 | cut -d' ' -f2 | grep -E '\.{3}' | cut -d'.' -f4)"
+          printf '%s\n' "Upstream branch name: $UPSTREAM_BRANCH_NAME"
+
+          set -o pipefail
+
+          if [ -z "$UPSTREAM_BRANCH_NAME" ]; then
+              printf >&2 '%s\n' "::error::Unable to determine upstream branch name!"
+              exit 1
+          fi
+
+          git fetch "${UPSTREAM_BRANCH_NAME%%/*}"
+
+          if ! UPSTREAM_SHA="$(git rev-parse "$UPSTREAM_BRANCH_NAME")"; then
+              printf >&2 '%s\n' "::error::Unable to determine upstream branch sha!"
+              exit 1
+          fi
+
+          HEAD_SHA="$(git rev-parse HEAD)"
+
+          if [ "$HEAD_SHA" != "$UPSTREAM_SHA" ]; then
+              printf >&2 '%s\n' "[HEAD SHA] $HEAD_SHA != $UPSTREAM_SHA [UPSTREAM SHA]"
+              printf >&2 '%s\n' "::error::Upstream has changed, aborting release..."
+              exit 1
+          fi
+
+          printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
+
+      - name: Action | Semantic Version Release
+        id: release
+        uses: python-semantic-release/python-semantic-release@v9.21.1
+        with:
+          github_token: ${{ secrets.RELEASE_PAT }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v9.21.1
+        with:
+          github_token: ${{ secrets.RELEASE_PAT }}
+          tag: ${{ needs.release.outputs.tag }}
+
+  build:
+    name: Build Distribution Packages
+    runs-on: ubuntu-latest
+    needs: python-checks
+    environment: release
+
+    # only run for tags
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Setup | Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup | Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Build | Create Distribution Packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+      
+      - name: Upload | Upload Distribution Packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: logctx-distributions
+          path: dist/
+
+  testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: build
+    environment: testpypi
+    permissions:
+      id-token: write
+
+    # only run for tags
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download | Download Distribution Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: logctx-distributions
+          path: dist/
+
+      - name: Publish | Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: testpypi
+    environment: pypi
+    permissions:
+      id-token: write
+
+    # only run for tags
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download | Download Distribution Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: logctx-distributions
+          path: dist/
+
+      - name: Publish | Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
