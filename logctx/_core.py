@@ -2,7 +2,7 @@ import contextvars
 import dataclasses
 import logging
 from contextlib import contextmanager
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional
 
 __all__: list[str] = [
     'LogContext',
