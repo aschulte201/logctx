@@ -12,6 +12,7 @@ import pytest
         'log_injection',
         'thread_isolation',
         'arguments',
+        'root',
     ],
 )
 def test_examples(module_name):

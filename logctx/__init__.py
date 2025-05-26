@@ -6,27 +6,33 @@ It allows you to manage key-value pairs for log-contexts which can be automatica
 added to log messages within their respective context.
 """
 
-__author__ = "Alexander Schulte"
-__maintainer__ = "Alexander Schulte"
+__author__ = 'Alexander Schulte'
+__maintainer__ = 'Alexander Schulte'
 
-__version__ = "0.2.0"
+__version__ = '0.2.0'
 
 from logctx import decorators
 from logctx._core import (
     ContextInjectingLoggingFilter,
+    ContextPropagator,
     LogContext,
+    NoActiveContextError,
     clear,
     get_current,
     new_context,
+    root,
     update,
 )
 
 __all__ = [
-    "ContextInjectingLoggingFilter",
-    "LogContext",
-    "clear",
-    "get_current",
-    "new_context",
-    "update",
-    "decorators",
+    'ContextInjectingLoggingFilter',
+    'ContextPropagator',
+    'LogContext',
+    'clear',
+    'get_current',
+    'new_context',
+    'update',
+    'decorators',
+    'NoActiveContextError',
+    'root',
 ]
