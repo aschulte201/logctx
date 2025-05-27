@@ -1,6 +1,20 @@
 import logctx
 
 #
+#   NoActiveContextError
+#
+print('\n\nRaising NoActiveContextError')
+print('----------------------')
+
+try:
+    logctx.get_current().to_dict()
+except logctx.NoActiveContextError as exc:
+    print('No active context found')
+    print(exc)
+    # > No active context found
+
+
+#
 #   Update thorugh child context
 #
 print('\n\nUpdate through child context')
@@ -17,9 +31,6 @@ with logctx.new_context(user='alice', role='admin'):
     # previous context is restored
     print('Parent context 2:', logctx.get_current().to_dict())
     # > {'user': 'alice', 'role': 'admin'}
-
-print('Root context:', logctx.get_current().to_dict())
-# > {}
 
 
 #
