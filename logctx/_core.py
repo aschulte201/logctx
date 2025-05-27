@@ -3,7 +3,6 @@ import dataclasses
 import logging
 from contextlib import contextmanager
 from typing import Any, Mapping, Optional
-import warnings
 
 __all__: list[str] = [
     'LogContext',
