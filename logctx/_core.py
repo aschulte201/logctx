@@ -3,6 +3,7 @@ import dataclasses
 import logging
 from contextlib import contextmanager
 from typing import Any, Mapping, Optional
+import warnings
 
 __all__: list[str] = [
     'LogContext',
@@ -11,6 +12,7 @@ __all__: list[str] = [
     'update',
     'clear',
     'ContextInjectingLoggingFilter',
+    'ContextPropagator',
 ]
 
 
@@ -195,6 +197,7 @@ class ContextInjectingLoggingFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         root_context = root.get_current()
+        
         try:
             context: LogContext = get_current()
         except NoActiveContextError:
@@ -208,11 +211,26 @@ class ContextInjectingLoggingFilter(logging.Filter):
         else:
             for k, v in context.to_dict().items():
                 setattr(record, k, v)
+        
         return True
 
 
 class ContextPropagator:
-    """Enables context propagation across threads / async tasks, ..."""
+    """Enables context propagation across threads / async tasks, ...
+    
+    Example:
+    ```python
+    propagator = logctx.ContextPropagator()
+
+    with logctx.new_context(a=1):
+        propagator.capture_current()
+
+    with logctx.new_context():
+        propagator.restore()
+        logctx.get_current()
+        # > {"a": 1}
+    ```
+    """
 
     def __init__(self):
         self._captured_basic: Optional[LogContext] = None
@@ -223,14 +241,26 @@ class ContextPropagator:
     def capture_current(cls) -> 'ContextPropagator':
         """Capture the current context and return a ContextPropagator instance.
 
-        This method captures the current context and returns an instance of
-        ContextPropagator that can be used to restore the captured context later.
+        Can only be used when inside active context. If you only want to capture
+        the root context, use `.capture(capture_basic=False)` instead.
         """
         propagator = cls()
-        propagator.capture(capture_basic=True, caputre_root=True)
+        propagator.capture(capture_basic=True, capture_root=True)
         return propagator
 
-    def capture(self, capture_basic: bool = True, caputre_root: bool = True) -> None:
+    def capture_basic(self) -> None:
+        """Capture the current basic context.
+        
+        Raises:
+            NoActiveContextError: When run outside an active context.
+        """
+        self.capture(capture_basic=True, capture_root=False)
+
+    def capture_root(self) -> None:
+        """Capture the current root context."""
+        self.capture(capture_basic=False, capture_root=True)
+
+    def capture(self, capture_basic: bool = True, capture_root: bool = True) -> None:
         """Capture the current context.
 
         Args:
@@ -242,13 +272,38 @@ class ContextPropagator:
 
         if capture_basic:
             self._captured_basic = get_current()
-        if caputre_root:
+
+        if capture_root:
             self._captured_root = root.get_current()
+
+    def restore_basic(self) -> None:
+        """Restore the basic captured context.
+
+        Use `restore` to restore all contexts.
+
+        Raises:
+            NoActiveContextError: When run outside an active context.
+            RuntimeError: If no context was captured before calling this method.
+        """
+        self.restore(restore_basic=True, restore_root=False)
+
+    def restore_root(self) -> None:
+        """Restore the root captured context.
+
+        Use `restore` to restore all contexts.
+
+        Raises:
+            RuntimeError: If no context was captured before calling this method.
+        """
+        self.restore(restore_basic=False, restore_root=True)
 
     def restore(
         self, restore_basic: Optional[bool] = None, restore_root: Optional[bool] = None
     ) -> None:
         """Restore the captured context.
+
+        Outputs a warning if tried to restore basic context whilst not inside
+        a basic context. Will still try to restore root if so.
 
         Args:
             restore_basic (Optional[bool]): Whether to restore the basic context.
@@ -257,6 +312,7 @@ class ContextPropagator:
                 If None, defaults to True if a root context was captured.
 
         Raises:
+            NoActiveContextError: When trying to restore basic context outside an active context.
             RuntimeError: If no context was captured before calling this method.
         """
 
@@ -267,6 +323,7 @@ class ContextPropagator:
 
         should_restore_basic = True if restore_basic is not False else False
         if should_restore_basic and self._captured_basic is not None:
+            get_current()
             _context_var.set(self._captured_basic)
 
         should_restore_root = True if restore_root is not False else False

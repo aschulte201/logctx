@@ -4,32 +4,31 @@ import logctx
 
 
 def test_capture_and_restore_basic_context():
+    propagator = logctx.ContextPropagator()
     with logctx.new_context(a=1):
-        logctx.update(b=2)
-        propagator = logctx.ContextPropagator.capture_current()
-
-        logctx.update(c=3)
-        assert logctx.get_current().to_dict() == {'a': 1, 'b': 2, 'c': 3}
-
-        logctx.clear()
-        propagator.restore()
-        # Should restore to the captured context (a=1, b=2)
+        propagator.capture_basic()
+        
+        logctx.update(b=2) # should not be captured
         assert logctx.get_current().to_dict() == {'a': 1, 'b': 2}
+
+    with logctx.new_context():
+        assert logctx.get_current().to_dict() == {}
+        propagator.restore_basic()
+        assert logctx.get_current().to_dict() == {'a': 1}
 
 
 def test_capture_and_restore_root_context():
     logctx.root.clear()
-    logctx.root.update(x=42)
+    logctx.root.update(a=1)
     propagator = logctx.ContextPropagator()
-    propagator.capture(capture_basic=False, caputre_root=True)
+    propagator.capture_root()
 
-    logctx.root.update(y=99)
-    assert logctx.root.get_current().to_dict() == {'x': 42, 'y': 99}
-
+    logctx.root.update(b=2) # should not be captured
+    assert logctx.root.get_current().to_dict() == {'a': 1, 'b': 2}
     logctx.root.clear()
-    propagator.restore(restore_basic=False, restore_root=True)
-    # Should restore to the captured root context (x=42)
-    assert logctx.root.get_current().to_dict() == {'x': 42}
+
+    propagator.restore_root()
+    assert logctx.root.get_current().to_dict() == {'a': 1}
 
 
 def test_restore_without_capture_raises():
@@ -38,12 +37,23 @@ def test_restore_without_capture_raises():
         propagator.restore()
 
 
-def test_capture_and_restore_only_root():
-    logctx.root.clear()
-    logctx.root.update(a=1)
-    propagator = logctx.ContextPropagator()
-    propagator.capture(capture_basic=False, caputre_root=True)
+def test_restore_outside_context_raises():
+    with logctx.new_context(a=1):
+        propagator = logctx.ContextPropagator.capture_current()
 
+    with pytest.raises(logctx.NoActiveContextError):
+        propagator.restore()    
+
+
+def test_capture_all_restore_only_root():
+    logctx.root.clear()
     logctx.root.update(a=2)
-    propagator.restore(restore_basic=False, restore_root=True)
-    assert logctx.root.get_current().to_dict() == {'a': 1}
+    with logctx.new_context(a=1):
+        propagator = logctx.ContextPropagator()
+        propagator.capture(capture_basic=True, capture_root=True)
+
+    logctx.root.clear()
+    with logctx.new_context():
+        propagator.restore(restore_basic=False, restore_root=True)
+        assert logctx.root.get_current().to_dict() == {'a': 2}
+        assert logctx.get_current().to_dict() == {}
