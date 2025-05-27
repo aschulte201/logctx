@@ -82,7 +82,11 @@ You can inspect the current context using:
 print(logctx.get_current().to_dict())
 ```
 
+The root context, i.e. the context outside any active contextmanager or decorator, is protected to avoid accidental changes (since it would apply everywhere inside the current thread). You must access it via `logctx.root`. It provides the same methods as in `logctx`, without the ability to create a nested context via `logctx.new_context()`.
+
 ## 🎯 Decorators
+
+The decorators described here will always create a new basic context with the same scope as the decorated function/method. There is currently no support for using these decorators to manipulate the root context.
 
 ### Static Context
 
@@ -146,7 +150,7 @@ If one of the specified arguments is not found in the function signature during 
 
 *Please note that the context attributes should never be updated directly through instances of `LogContext` (the return values of e.g. the contextmanagers and `logctx.get_current()`).*
 
-Below context manipulation functions work for contexts created by contextmanagers as well as context created by decorators. Use these to alter your current active context.
+Below context manipulation functions work for contexts created by contextmanagers as well as context created by decorators. Use these to alter your current active context. In addition, they also work on `logctx.root`.
 
 ---
 
@@ -190,6 +194,24 @@ with logctx.new_context(section="main"):
         logctx.get_current().to_dict() # {}
     
     logctx.get_current().to_dict() # {'section': 'main'}
+```
+
+## 🔗 Context Propagation
+
+Generally, the contexts are isolated across threads / async on purpose. If you still want to propagate the context you can use the `ContextPropagator` object:
+
+```python
+import logctx
+
+propagator = logctx.ContextPropagator()
+with logctx.new_context(event_id="1234"):
+    propagator.capture()
+
+with logctx.new_context():
+    logctx.get_current() # > {}
+    propagator.restore()
+    logctx.get_current() # > {'event_id': #1234'}
+
 ```
 
 ## 🧩 Log Injection
