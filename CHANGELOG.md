@@ -1,7 +1,15 @@
 # CHANGELOG
 
 
+## v1.0.1 (2026-04-09)
+
+
 ## v1.0.0 (2025-05-27)
+
+### Bug Fixes
+
+- Prevent empty iterators from raising StopIterations
+  ([`03efef9`](https://github.com/aschulte201/logctx/commit/03efef93a8efc86087e234f0614fe1aaaaf9abba))
 
 
 ## v0.4.0 (2025-05-12)
