@@ -8,7 +8,7 @@ added to log messages within their respective context.
 
 __author__ = 'Alexander Schulte'
 __maintainer__ = 'Alexander Schulte'
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 
 from logctx import decorators
 from logctx._core import (
