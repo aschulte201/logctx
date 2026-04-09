@@ -59,8 +59,14 @@ def _sync_generator_wrapper(
         *args: _P.args, **kwargs: _P.kwargs
     ) -> Generator[_GenYield, _GenSend, _GenReturn]:
         gen = func(*args, **kwargs)
-        with _core.new_context(**static_context):
-            first_element: _GenYield = next(gen)
+        
+        try:
+            with _core.new_context(**static_context):
+                first_element: _GenYield = next(gen)
+        except StopIteration as e:
+            # since PEP 479 generators should gracefully return a value without
+            # raising StopIteration.
+            return e.value
 
         to_send: _GenSend = yield first_element
 
@@ -88,8 +94,11 @@ def _async_generator_wrapper(
     ) -> AsyncGenerator[_GenYield, _GenSend]:
         gen = func(*args, **kwargs)
 
-        with _core.new_context(**static_context):
-            first_element: _GenYield = await gen.__anext__()
+        try:
+            with _core.new_context(**static_context):
+                first_element: _GenYield = await gen.__anext__()
+        except StopAsyncIteration:
+            return
 
         to_send: _GenSend = yield first_element
 
